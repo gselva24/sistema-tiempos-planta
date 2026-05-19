@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Control de Planta</title>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="Control Planta">
+    <meta name="apple-mobile-web-app-title" content="Control Planta">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body class="bg-slate-900 min-h-screen flex flex-col items-center justify-center p-4 md:p-6 text-slate-100 select-none">
+
+    <!-- CONTENEDOR PRINCIPAL -->
+    <div class="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- ACCIÓN 1: SELECCIÓN DE PRERREQUISITO -->
+        <div class="bg-slate-800 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-between lg:col-span-1">
+            <div>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-indigo-400 flex items-center gap-2">
+                        <span>1.</span> Prerrequisito
+                    </h2>
+                    <button id="toggle-admin-btn" onclick="promptAdmin()" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-1 rounded transition border border-slate-600">
+                        🔑 Modo Gerente
+                    </button>
+                </div>
+                <p class="text-xs text-slate-400 mb-6">Selecciona la opción obligatoria antes de iniciar el cronómetro de producción.</p>
+                
+                <label class="block text-sm font-medium text-slate-300 mb-2">Opción Activa:</label>
+                <select id="prerequisite-select" disabled class="w-full px-3 py-2.5 border border-slate-600 rounded-xl bg-slate-900 text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm mb-4 cursor-not-allowed">
+                    <option value="">⏳ Conectando a la nube...</option>
+                </select>
+            </div>
+
+            <!-- PANEL EXCLUSIVO DEL GERENTE -->
+            <div id="admin-panel" class="hidden mt-6 pt-6 border-t border-slate-700 bg-slate-850 rounded-xl">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-sm font-bold text-amber-400 uppercase tracking-wider">⚙️ Configuración (Gerente)</h3>
+                    <button onclick="lockAdmin()" class="text-xs text-rose-400 hover:underline">Cerrar sesión</button>
+                </div>
+                
+                <div class="flex gap-2 mb-4">
+                    <input type="text" id="new-option-input" placeholder="Nueva opción..." class="flex-1 px-3 py-1.5 bg-slate-900 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-xs text-slate-200">
+                    <button id="add-opt-btn" onclick="addOption()" class="bg-amber-500 hover:bg-amber-600 text-slate-900 px-3 py-1.5 rounded-lg text-xs font-bold transition">Añadir</button>
+                </div>
+
+                <ul id="options-list" class="space-y-2 max-h-40 overflow-y-auto pr-1">
+                    <!-- Dinámico -->
+                </ul>
+            </div>
+        </div>
+
+        <!-- ACCIÓN 2: CRONÓMETRO DE PLANTA -->
+        <div class="bg-slate-800 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-between lg:col-span-2">
+            <div>
+                <h2 class="text-xl font-bold text-emerald-400 flex items-center gap-2 mb-2">
+                    <span>2.</span> Control de Tiempos
+                </h2>
+                <p class="text-xs text-slate-400 mb-6">El operario debe iniciar el proceso una vez cumplido el prerrequisito.</p>
+                
+                <div class="text-center my-8 bg-slate-900/50 py-6 rounded-2xl border border-slate-750">
+                    <span id="chronometer-display" class="text-6xl font-mono font-bold text-slate-600 transition-colors duration-300">00:00:00</span>
+                    <p id="active-task-indicator" class="text-xs text-slate-500 mt-2 italic">Sincronizando base de datos central...</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <button id="start-btn" onclick="startTimer()" disabled class="bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 text-white py-3.5 rounded-xl font-bold transition shadow-lg disabled:opacity-30 disabled:cursor-not-allowed text-base tracking-wide">
+                        INICIAR TURNO
+                    </button>
+                    <button id="stop-btn" onclick="stopTimer()" disabled class="bg-rose-600 hover:bg-rose-500 disabled:bg-slate-700 text-white py-3.5 rounded-xl font-bold transition shadow-lg disabled:opacity-30 disabled:cursor-not-allowed text-base tracking-wide">
+                        DETENER TURNO
+                    </button>
+                </div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-slate-700 flex items-center justify-between">
+                <span class="text-xs text-slate-500">Los datos se transmiten en vivo a nivel global.</span>
+                <button id="export-excel-btn" onclick="exportToExcel()" class="hidden bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-xl text-xs font-semibold transition border border-slate-600 flex items-center gap-2">
+                    📊 Descargar Historial Local (Excel)
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- BASE DE DATOS LOCAL -->
+    <div id="database-panel" class="hidden max-w-5xl w-full mt-6 bg-slate-800 p-6 rounded-2xl shadow-xl border border-slate-700">
+        <h3 class="text-sm font-bold mb-4 text-slate-400 uppercase tracking-wider">Historial de Turnos en este Dispositivo</h3>
+        <div class="overflow-x-auto max-h-60 rounded-xl border border-slate-700">
+            <table class="w-full text-left text-xs text-slate-300">
+                <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider text-[10px] border-b border-slate-700">
+                    <tr>
+                        <th class="p-3">Prerrequisito Asignado</th>
+                        <th class="p-3">Hora de Inicio</th>
+                        <th class="p-3">Hora de Finalización</th>
+                        <th class="p-3">Duración Ejecutada</th>
+                    </tr>
+                </thead>
+                <tbody id="database-rows" class="divide-y divide-slate-700/50">
+                    <!-- Dinámico -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURACIÓN CLOUD CENTRALIZADA ---
+        const GERENTE_PASSWORD = "PRODUCCION2026"; 
+        
+        // Coloca aquí tu nueva URL de Web App generada en el paso 2
+        const GOOGLE_SHEETS_URL = "PEGA_AQUI_TU_URL_DE_GOOGLE_APPS_SCRIPT";
+
+        // --- ESTADO ---
+        let isAdmin = false;
+        let options = [];
+        let records = JSON.parse(localStorage.getItem('records')) || [];
+        
+        let timerInterval = null;
+        let startTime = null;
+        let selectedPrerequisite = "";
+
+        // --- ELEMENTOS DEL DOM ---
+        const optionsList = document.getElementById('options-list');
+        const prerequisiteSelect = document.getElementById('prerequisite-select');
+        const newOptionInput = document.getElementById('new-option-input');
+        const chronometerDisplay = document.getElementById('chronometer-display');
+        const activeTaskIndicator = document.getElementById('active-task-indicator');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const databaseRows = document.getElementById('database-rows');
+        const adminPanel = document.getElementById('admin-panel');
+        const databasePanel = document.getElementById('database-panel');
+        const exportExcelBtn = document.getElementById('export-excel-btn');
+        const toggleAdminBtn = document.getElementById('toggle-admin-btn');
+
+        // --- INICIALIZACIÓN AUTOMÁTICA ---
+        loadOptionsFromCloud();
+        renderRecords();
+
+        prerequisiteSelect.addEventListener('change', (e) => {
+            selectedPrerequisite = e.target.value;
+            checkPrerequisite();
+        });
+
+        // --- CARGAR OPCIONES DESDE GOOGLE SHEETS EN TIEMPO REAL ---
+        function loadOptionsFromCloud() {
+            if (!GOOGLE_SHEETS_URL || GOOGLE_SHEETS_URL === "PEGA_AQUI_TU_URL_DE_GOOGLE_APPS_SCRIPT") {
+                activeTaskIndicator.innerText = "⚠️ Error: Falta configurar el enlace de vinculación cloud.";
+                return;
+            }
+
+            fetch(GOOGLE_SHEETS_URL)
+                .then(response => {
+                    if (!response.ok) throw new Error('Error en la red');
+                    return response.json();
+                })
+                .then(data => {
+                    if (Array.isArray(data)) {
+                        options = data;
+                        prerequisiteSelect.disabled = false;
+                        prerequisiteSelect.classList.remove('text-slate-400', 'cursor-not-allowed');
+                        renderOptionsUI();
+                        activeTaskIndicator.innerText = "✅ Conectado a la nube. Panel operativo.";
+                    }
+                })
+                .catch(err => {
+                    console.error("Error leyendo nube:", err);
+                    activeTaskIndicator.innerText = "⚠️ Sincronizando de forma local transitoria...";
+                    options = JSON.parse(localStorage.getItem('options')) || ['Línea de Ensamblaje A'];
+                    prerequisiteSelect.disabled = false;
+                    prerequisiteSelect.classList.remove('text-slate-400', 'cursor-not-allowed');
+                    renderOptionsUI();
+                });
+        }
+
+        // --- TRANSMITIR CAMBIOS DE CONFIGURACIÓN A LA NUBE ---
+        function syncOptionsToCloud() {
+            if (!isAdmin) return;
+            
+            localStorage.setItem('options', JSON.stringify(options));
+            renderOptionsUI();
+
+            fetch(GOOGLE_SHEETS_URL, {
+                method: "POST",
+                mode: "no-cors",
+                cache: "no-cache",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    action: "updateOptions",
+                    options: options
+                })
+            })
+            .then(() => {
+                console.log("Configuración replicada.");
+            })
+            .catch(err => console.error("Error al sincronizar opciones:", err));
+        }
+
+        // --- CONTROL DE ACCESO GERENTE ---
+        function promptAdmin() {
+            if (isAdmin) {
+                lockAdmin();
+                return;
+            }
+            const pass = prompt("Ingrese la contraseña de Gerente de Planta:");
+            if (pass === GERENTE_PASSWORD) {
+                isAdmin = true;
+                adminPanel.classList.remove('hidden');
+                databasePanel.classList.remove('hidden');
+                exportExcelBtn.classList.remove('hidden');
+                toggleAdminBtn.innerText = "🔒 Bloquear Panel";
+                toggleAdminBtn.classList.replace('bg-slate-700', 'bg-amber-600');
+                toggleAdminBtn.classList.replace('text-slate-300', 'text-slate-900');
+                renderOptionsUI();
+            } else if (pass !== null) {
+                alert("Contraseña incorrecta.");
+            }
+        }
+
+        function lockAdmin() {
+            isAdmin = false;
+            adminPanel.classList.add('hidden');
+            databasePanel.classList.add('hidden');
+            exportExcelBtn.classList.add('hidden');
+            toggleAdminBtn.innerText = "🔑 Modo Gerente";
+            toggleAdminBtn.classList.replace('bg-amber-600', 'bg-slate-700');
+            toggleAdminBtn.classList.replace('text-slate-900', 'text-slate-300');
+        }
+
+        function checkPrerequisite() {
+            if (selectedPrerequisite && !timerInterval) {
+                startBtn.disabled = false;
+                chronometerDisplay.classList.replace('text-slate-600', 'text-slate-300');
+                activeTaskIndicator.innerText = `Prerrequisito seleccionado: ${selectedPrerequisite}`;
+            } else if (!timerInterval) {
+                startBtn.disabled = true;
+                chronometerDisplay.classList.replace('text-slate-300', 'text-slate-600');
+                activeTaskIndicator.innerText = "Seleccione una opción para comenzar.";
+            }
+        }
+
+        // --- RENDERIZADO DE INTERFAZ ---
+        function renderOptionsUI() {
+            prerequisiteSelect.innerHTML = '<option value="">-- Seleccione una opción --</option>';
+            optionsList.innerHTML = '';
+
+            options.forEach((option, index) => {
+                const optElement = document.createElement('option');
+                optElement.value = option;
+                optElement.innerText = option;
+                if (option === selectedPrerequisite) optElement.selected = true;
+                prerequisiteSelect.appendChild(optElement);
+
+                if (isAdmin) {
+                    const li = document.createElement('li');
+                    li.className = "flex items-center justify-between bg-slate-900 p-2 rounded-lg border border-slate-700 text-xs";
+                    li.innerHTML = `
+                        <input type="text" value="${option}" onchange="editOption(${index}, this.value)" class="bg-transparent border-b border-transparent hover:border-slate-500 focus:border-amber-500 focus:outline-none font-medium text-slate-200 px-1 py-0.5 w-4/5">
+                        <button onclick="deleteOption(${index})" class="text-rose-400 hover:text-rose-600 font-bold px-1">✕</button>
+                    `;
+                    optionsList.appendChild(li);
+                }
+            });
+            checkPrerequisite();
+        }
+
+        // --- EDICIÓN DE CONFIGURACIÓN (GERENTE) ---
+        function addOption() {
+            if (!isAdmin) return;
+            const value = newOptionInput.value.trim();
+            if (value && !options.includes(value)) {
+                options.push(value);
+                newOptionInput.value = '';
+                syncOptionsToCloud();
+            }
+        }
+
+        function editOption(index, newValue) {
+            if (!isAdmin) return;
+            const val = newValue.trim();
+            if (val) {
+                if(options[index] === selectedPrerequisite) selectedPrerequisite = val;
+                options[index] = val;
+                syncOptionsToCloud();
+            }
+        }
+
+        function deleteOption(index) {
+            if (!isAdmin) return;
+            if(options[index] === selectedPrerequisite) selectedPrerequisite = "";
+            options.splice(index, 1);
+            syncOptionsToCloud();
+        }
+
+        // --- OPERACIÓN DEL CRONÓMETRO ---
+        function startTimer() {
+            if (!selectedPrerequisite) return;
+
+            startTime = new Date();
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            prerequisiteSelect.disabled = true; 
+
+            chronometerDisplay.classList.replace('text-slate-300', 'text-emerald-400');
+            activeTaskIndicator.innerText = `PROCESO EN CURSO: ${selectedPrerequisite}`;
+
+            timerInterval = setInterval(() => {
+                const diff = new Date() - startTime;
+                chronometerDisplay.innerText = formatTime(diff);
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            const endTime = new Date();
+            const diff = endTime - startTime;
+            const duration = formatTime(diff);
+
+            const newRecord = {
+                option: selectedPrerequisite,
+                start: startTime.toLocaleString(),
+                end: endTime.toLocaleString(),
+                duration: duration
+            };
+
+            records.push(newRecord);
+            localStorage.setItem('records', JSON.stringify(records));
+
+            activeTaskIndicator.innerText = "⏳ Sincronizando registro con Google Sheets...";
+            
+            fetch(GOOGLE_SHEETS_URL, {
+                method: "POST",
+                mode: "no-cors",
+                cache: "no-cache",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(newRecord)
+            })
+            .then(() => {
+                activeTaskIndicator.innerText = "✅ Turno registrado en la nube correctamente";
+            })
+            .catch((err) => {
+                console.error(err);
+                activeTaskIndicator.innerText = "⚠️ Registro guardado solo localmente (Fallo de red)";
+            });
+
+            stopBtn.disabled = true;
+            prerequisiteSelect.disabled = false;
+            chronometerDisplay.innerText = "00:00:00";
+            chronometerDisplay.classList.replace('text-emerald-400', 'text-slate-300');
+            
+            renderRecords();
+            checkPrerequisite();
+        }
+
+        function formatTime(ms) {
+            const totalSecs = Math.floor(ms / 1000);
+            const hrs = Math.floor(totalSecs / 3600).toString().padStart(2, '0');
+            const mins = Math.floor((totalSecs % 3600) / 60).toString().padStart(2, '0');
+            const secs = (totalSecs % 60).toString().padStart(2, '0');
+            return `${hrs}:${mins}:${secs}`;
+        }
+
+        function renderRecords() {
+            databaseRows.innerHTML = '';
+            [...records].reverse().forEach(record => {
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-slate-700/50 hover:bg-slate-750 text-[11px]";
+                tr.innerHTML = `
+                    <td class="p-3 font-semibold text-slate-200">${record.option}</td>
+                    <td class="p-3 text-slate-400">${record.start}</td>
+                    <td class="p-3 text-slate-400">${record.end}</td>
+                    <td class="p-3 text-emerald-400 font-mono font-bold">${record.duration}</td>
+                `;
+                databaseRows.appendChild(tr);
+            });
+        }
+
+        function exportToExcel() {
+            if (!isAdmin) return;
+            if (records.length === 0) return alert("No hay datos.");
+            const dataToExport = records.map(r => ({
+                "Prerrequisito": r.option,
+                "Inicio": r.start,
+                "Fin": r.end,
+                "Duración": r.duration
+            }));
+            const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+            const workbook = XLSX.utils.book_new();
+            XLSX.book_append_sheet(workbook, worksheet, "Datos_Locales");
+            XLSX.writeFile(workbook, "Historial_Dispositivo.xlsx");
+        }
+    </script>
+</body>
+</html>
