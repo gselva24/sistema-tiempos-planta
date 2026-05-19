@@ -114,7 +114,7 @@
         const GERENTE_PASSWORD = "PRODUCCION2026"; 
         
         // Coloca aquí tu nueva URL de Web App generada en el paso 2
-        const GOOGLE_SHEETS_URL = "PEGA_AQUI_TU_URL_DE_GOOGLE_APPS_SCRIPT";
+        const GOOGLE_SHEETS_URL = "https://script.google.com/macros/library/d/1QIiLCUJiEaBNkLfeDkEN1ZsmZ80YBPa1BlIb8CcTfmtbkSCCUnCDoSmX/2";
 
         // --- ESTADO ---
         let isAdmin = false;
@@ -150,7 +150,7 @@
 
         // --- CARGAR OPCIONES DESDE GOOGLE SHEETS EN TIEMPO REAL ---
         function loadOptionsFromCloud() {
-            if (!GOOGLE_SHEETS_URL || GOOGLE_SHEETS_URL === "PEGA_AQUI_TU_URL_DE_GOOGLE_APPS_SCRIPT") {
+            if (!GOOGLE_SHEETS_URL || GOOGLE_SHEETS_URL === "https://script.google.com/macros/library/d/1QIiLCUJiEaBNkLfeDkEN1ZsmZ80YBPa1BlIb8CcTfmtbkSCCUnCDoSmX/2") {
                 activeTaskIndicator.innerText = "⚠️ Error: Falta configurar el enlace de vinculación cloud.";
                 return;
             }
